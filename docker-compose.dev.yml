@@ -1,0 +1,38 @@
+# Docker Compose for Development
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# This extends docker-compose.yml with development-specific settings
+
+version: '3.8'
+
+services:
+  mcp-server:
+    # Override build to use development mode
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development  # Optional: if you add multi-stage builds
+    
+    # Development environment variables
+    environment:
+      - NODE_ENV=development
+      - DEBUG=*
+    
+    # Mount source code as volume for hot-reloading
+    # Changes to your code reflect immediately without rebuilding
+    volumes:
+      - .:/app
+      - /app/node_modules  # Don't override node_modules with local
+    
+    # Override command to use nodemon for auto-restart
+    command: npm run dev
+    
+    # Expose additional ports if needed (e.g., debugger)
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Node.js debugger port
+
+  # MongoDB with exposed port for development tools
+  mongodb:
+    ports:
+      - "27017:27017"  # Allow MongoDB Compass to connect

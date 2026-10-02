@@ -1,0 +1,111 @@
+# Docker Compose - Run your entire MCP server stack with one command
+# Usage: docker-compose up -d
+#
+# WHAT IT DOES:
+# - Starts your MCP server
+# - Starts MongoDB database
+# - Connects them together
+# - Sets up persistent storage for database
+
+version: '3.8'
+
+services:
+  # Your MCP Server
+  mcp-server:
+    # Build from the Dockerfile in current directory
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Container name
+    container_name: personal-mcp-server
+    
+    # Restart policy - always restart if container crashes
+    restart: unless-stopped
+    
+    # Port mapping: host:container
+    # Access your server at http://localhost:3000
+    ports:
+      - "3000:3000"
+    
+    # Environment variables
+    # IMPORTANT: Create a .env file with these values
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # MongoDB connection (connects to mongodb service below)
+      - MONGODB_URI=mongodb://mongodb:27017/mcp-server
+      # Add your other environment variables here
+      - TODO_API_KEY=${TODO_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GOOGLE_CALENDAR_API_KEY=${GOOGLE_CALENDAR_API_KEY}
+      - FINANCE_API_KEY=${FINANCE_API_KEY}
+    
+    # Load additional environment variables from .env file
+    env_file:
+      - .env
+    
+    # Depends on MongoDB - start MongoDB first
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    
+    # Network - both services on same network to communicate
+    networks:
+      - mcp-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # MongoDB Database
+  mongodb:
+    # Official MongoDB image
+    image: mongo:7
+    
+    container_name: mcp-mongodb
+    
+    restart: unless-stopped
+    
+    # MongoDB port (only accessible within Docker network, not from host)
+    # If you need external access, uncomment the ports section below
+    # ports:
+    #   - "27017:27017"
+    
+    # Persistent storage - data survives container restarts
+    volumes:
+      - mongodb-data:/data/db
+      - mongodb-config:/data/configdb
+    
+    # Optional: Set MongoDB root username/password
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-changeme}
+      - MONGO_INITDB_DATABASE=mcp-server
+    
+    networks:
+      - mcp-network
+    
+    # Health check for MongoDB
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# Named volumes for persistent data
+volumes:
+  mongodb-data:
+    driver: local
+  mongodb-config:
+    driver: local
+
+# Custom network for service communication
+networks:
+  mcp-network:
+    driver: bridge

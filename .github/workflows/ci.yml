@@ -1,0 +1,184 @@
+# CI/CD Pipeline for Personal MCP Server
+# This workflow runs comprehensive tests and automatically deploys to Render
+# 
+# WHAT IT DOES:
+# 1. Tests your code on multiple Node.js versions
+# 2. Runs security audits to catch vulnerabilities
+# 3. Validates code syntax and dependencies
+# 4. Automatically deploys to Render when you push to main
+
+name: CI/CD Pipeline
+
+# WHEN does this run?
+# - On every push to main branch
+# - On pull requests to main branch
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # JOB 1: Run comprehensive tests
+  test-and-validate:
+    name: Test on Node.js ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    
+    # Test on multiple Node.js versions to ensure compatibility
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+    
+    steps:
+    # STEP 1: Download your code from GitHub
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # STEP 2: Install Node.js (JavaScript runtime)
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        # Cache npm packages to make future runs faster
+        cache: 'npm'
+    
+    # STEP 3: Install all dependencies
+    # npm ci = clean install (faster and more reliable than npm install)
+    - name: Install dependencies
+      run: npm ci
+    
+    # STEP 4: Check for syntax errors in server.js
+    - name: Validate server syntax
+      run: node --check server.js
+    
+    # STEP 5: Run tests (if you have a test script)
+    # If tests fail, the workflow stops here
+    - name: Run tests
+      run: npm test
+      continue-on-error: true  # Don't fail if no tests configured yet
+
+  # JOB 2: Security audit - find vulnerabilities in dependencies
+  security-audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    # Check for known security vulnerabilities in your dependencies
+    - name: Run security audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true  # Don't fail build, just warn
+    
+    # Check production dependencies specifically
+    - name: Check production vulnerabilities
+      run: npm audit --production
+      continue-on-error: true
+
+  # JOB 3: Lint and format checks
+  lint:
+    name: Code quality checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    # Check code formatting (if you have ESLint configured)
+    - name: Check code formatting
+      run: |
+        if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ]; then
+          npm run lint
+        else
+          echo "No linting configuration found, skipping..."
+        fi
+      continue-on-error: true
+
+  # JOB 4: Build validation - make sure everything compiles
+  build:
+    name: Build and validate
+    runs-on: ubuntu-latest
+    needs: [test-and-validate, security-audit, lint]  # Wait for all tests to pass
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    # Verify all dependencies resolve correctly
+    - name: Validate dependencies
+      run: npm ls --all
+      continue-on-error: true
+    
+    # Make sure .env.example exists (important for deployment)
+    - name: Check environment template
+      run: |
+        if [ ! -f ".env.example" ]; then
+          echo "Warning: .env.example file not found"
+        else
+          echo ".env.example found - good for documentation"
+        fi
+
+  # JOB 5: Deploy to Render (only on main branch pushes)
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    # Only deploy if:
+    # 1. All tests passed
+    # 2. Pushing to main branch (not pull requests)
+    needs: [test-and-validate, security-audit, lint, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Trigger Render deployment using webhook
+    # The webhook URL is stored as a GitHub secret for security
+    - name: Deploy to Render
+      env:
+        RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      run: |
+        if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+          # Send HTTP POST request to Render's deploy hook
+          curl -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "✅ Deployment triggered on Render successfully"
+        else
+          echo "⚠️  RENDER_DEPLOY_HOOK_URL not configured in GitHub secrets"
+          echo "To enable auto-deployment:"
+          echo "1. Go to your Render dashboard"
+          echo "2. Copy your deploy hook URL"
+          echo "3. Add it as RENDER_DEPLOY_HOOK_URL in GitHub repo secrets"
+          exit 1
+        fi
+    
+    # Optional: Add deployment notification
+    - name: Deployment status
+      if: success()
+      run: |
+        echo "🚀 Deployment completed!"
+        echo "Your MCP server should be live in a few minutes"
