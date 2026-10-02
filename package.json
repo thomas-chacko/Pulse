@@ -1,0 +1,17 @@
+{
+  "name": "Personal MCP Server",
+  "version": "1.0.0",
+  "description": "Personal MCP server: todo, finance, github, calendar - all through Claude",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "mongodb": "^7.7.0",
+    "nodemon": "^3.1.14"
+  }
+}
