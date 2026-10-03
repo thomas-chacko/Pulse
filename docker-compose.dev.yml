@@ -3,8 +3,6 @@
 #
 # This extends docker-compose.yml with development-specific settings
 
-version: '3.8'
-
 services:
   mcp-server:
     # Override build to use development mode
