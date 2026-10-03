@@ -25,9 +25,4 @@ router.get('/test', async (req, res) => {
   }
 });
 
-// Your API routes will go here
-// Example:
-// router.get('/todos', async (req, res) => { ... });
-// router.post('/todos', async (req, res) => { ... });
-
 export default router;
