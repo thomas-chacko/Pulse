@@ -15,16 +15,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 
-// Health check endpoint (required for Docker and CI/CD)
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    database: isConnected() ? 'connected' : 'disconnected'
-  });
-});
-
 // API routes
 app.use('/api', apiRoutes);
 
@@ -35,7 +25,7 @@ async function startServer() {
     
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
-      console.log(`🏥 Health: http://localhost:${PORT}/health`);
+      console.log(`🏥 Health: http://localhost:${PORT}/api/health`);
       console.log(`🧪 Test DB: http://localhost:${PORT}/api/test`);
     });
   } catch (error) {
