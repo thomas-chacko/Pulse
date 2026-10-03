@@ -57,6 +57,38 @@ router.post('/test-insert', async (req, res) => {
   }
 });
 
+// GET version for easy browser testing
+router.get('/test-insert', async (req, res) => {
+  try {
+    const db = getDB();
+    
+    // Insert dummy data into 'test_collection'
+    const result = await db.collection('test_collection').insertOne({
+      message: 'Hello from production!',
+      timestamp: new Date(),
+      environment: process.env.NODE_ENV || 'development',
+      testData: {
+        user: 'test_user',
+        status: 'active',
+        version: '1.0.0'
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: 'Test data inserted successfully',
+      database: db.databaseName,
+      collection: 'test_collection',
+      insertedId: result.insertedId
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to insert test data',
+      message: error.message
+    });
+  }
+});
+
 // Get all test data (verify data was inserted)
 router.get('/test-data', async (req, res) => {
   try {
