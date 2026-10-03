@@ -21,7 +21,7 @@ services:
     
     # Override MongoDB URI to use Docker service name
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/mcp-server
+      - MONGODB_URI=mongodb://mongodb:27017/pulse
     
     # Wait for MongoDB to be healthy before starting
     depends_on:
