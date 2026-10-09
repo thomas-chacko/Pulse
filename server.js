@@ -3,6 +3,7 @@
 
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import { connectDB, closeDB, isConnected, getDB } from './config/database.js';
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -19,81 +20,106 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 
-// Set up MCP Server
-const mcpServer = new Server({
-  name: "personal-mcp-server",
-  version: "1.0.0"
-}, {
-  capabilities: { tools: {} }
-});
+// Set up MCP Server instances for each connection
+const transports = new Map();
 
-// Configure MCP Tools
-mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
-        name: "get_todos",
-        description: "Get a list of todos with optional filters",
-        inputSchema: {
-          type: "object",
-          properties: {
-            status: { type: "string", description: "Filter by status (pending, completed)" },
-            priority: { type: "string", description: "Filter by priority (low, medium, high)" },
-            limit: { type: "number", description: "Maximum number of todos to return" }
+function createMcpServer() {
+  const mcpServer = new Server({
+    name: "personal-mcp-server",
+    version: "1.0.0"
+  }, {
+    capabilities: { tools: {} }
+  });
+
+  // Configure MCP Tools
+  mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
+    return {
+      tools: [
+        {
+          name: "get_todos",
+          description: "Get a list of todos with optional filters",
+          inputSchema: {
+            type: "object",
+            properties: {
+              status: { type: "string", description: "Filter by status (pending, completed)" },
+              priority: { type: "string", description: "Filter by priority (low, medium, high)" },
+              limit: { type: "number", description: "Maximum number of todos to return" }
+            }
+          }
+        },
+        {
+          name: "create_todo",
+          description: "Create a new todo item",
+          inputSchema: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Title of the todo" },
+              description: { type: "string", description: "Description of the todo" },
+              priority: { type: "string", description: "Priority (low, medium, high)" }
+            },
+            required: ["title"]
           }
         }
-      },
-      {
-        name: "create_todo",
-        description: "Create a new todo item",
-        inputSchema: {
-          type: "object",
-          properties: {
-            title: { type: "string", description: "Title of the todo" },
-            description: { type: "string", description: "Description of the todo" },
-            priority: { type: "string", description: "Priority (low, medium, high)" }
-          },
-          required: ["title"]
-        }
-      }
-    ]
-  };
-});
-
-mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name === "get_todos") {
-    const filters = request.params.arguments || {};
-    const todos = await TodoModel.getTodos(filters);
-    return {
-      content: [{ type: "text", text: JSON.stringify(todos, null, 2) }]
+      ]
     };
-  } else if (request.params.name === "create_todo") {
-    const newTodo = await TodoModel.createTodo(request.params.arguments);
-    return {
-      content: [{ type: "text", text: JSON.stringify(newTodo, null, 2) }]
-    };
-  }
-  
-  throw new Error(`Tool not found: ${request.params.name}`);
-});
+  });
 
-let transport = null;
+  mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+    if (request.params.name === "get_todos") {
+      const filters = request.params.arguments || {};
+      const todos = await TodoModel.getTodos(filters);
+      return {
+        content: [{ type: "text", text: JSON.stringify(todos, null, 2) }]
+      };
+    } else if (request.params.name === "create_todo") {
+      const newTodo = await TodoModel.createTodo(request.params.arguments);
+      return {
+        content: [{ type: "text", text: JSON.stringify(newTodo, null, 2) }]
+      };
+    }
+    
+    throw new Error(`Tool not found: ${request.params.name}`);
+  });
+
+  return mcpServer;
+}
 
 // SSE Endpoint for MCP connectors
 app.get('/mcp', async (req, res) => {
   console.log('Received MCP connection request');
-  transport = new SSEServerTransport("/message", res);
+  
+  const mcpServer = createMcpServer();
+  const transport = new SSEServerTransport("/message", res);
+  
   await mcpServer.connect(transport);
+  
+  // Store the transport so we can route messages to it
+  transports.set(transport.sessionId, transport);
+  
+  // Clean up when connection closes
+  res.on('close', () => {
+    console.log(`Connection closed for session: ${transport.sessionId}`);
+    transports.delete(transport.sessionId);
+  });
 });
 
 // Message Endpoint for MCP connectors
 app.post('/message', async (req, res) => {
+  const sessionId = req.query.sessionId;
+  
+  if (!sessionId) {
+    return res.status(400).send("Session ID required");
+  }
+  
+  const transport = transports.get(sessionId);
+  
   if (transport) {
     await transport.handlePostMessage(req, res);
   } else {
-    res.status(400).send("MCP transport not initialized");
+    res.status(404).send("Session not found");
   }
 });
 
