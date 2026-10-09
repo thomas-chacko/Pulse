@@ -35,51 +35,51 @@ help:
 # Build Docker images
 build:
 	@echo "Building Docker images..."
-	docker-compose build
+	docker compose build
 
 # Start containers in detached mode
 up:
 	@echo "Starting containers..."
-	docker-compose up -d
+	docker compose up -d
 	@echo "Containers started! Access your server at http://localhost:3000"
 
 # Start in development mode
 dev:
 	@echo "Starting in development mode..."
-	docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 # Stop containers
 down:
 	@echo "Stopping containers..."
-	docker-compose down
+	docker compose down
 
 # Restart containers
 restart: down up
 
 # View logs (follow mode)
 logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 # Open shell in MCP server container
 shell:
-	docker-compose exec mcp-server sh
+	docker compose exec mcp-server sh
 
 # Open MongoDB shell
 mongo:
-	docker-compose exec mongodb mongosh
+	docker compose exec mongodb mongosh
 
 # Show container status
 status:
-	docker-compose ps
+	docker compose ps
 
 # Run tests
 test:
-	docker-compose exec mcp-server npm test
+	docker compose exec mcp-server npm test
 
 # Clean everything (containers, volumes, images)
 clean:
 	@echo "Removing containers, volumes, and images..."
-	docker-compose down -v --rmi all
+	docker compose down -v --rmi all
 	@echo "Cleanup complete!"
 
 # Stop, rebuild, and start (fresh start)
