@@ -23,6 +23,22 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Debug logger to intercept Claude's requests
+const debugLogs = [];
+app.use((req, res, next) => {
+  debugLogs.push({
+    time: new Date().toISOString(),
+    method: req.method,
+    url: req.url
+  });
+  if (debugLogs.length > 50) debugLogs.shift();
+  next();
+});
+
+app.get('/debug-logs', (req, res) => {
+  res.json(debugLogs);
+});
+
 // Set up MCP Server instances for each connection
 const transports = new Map();
 
