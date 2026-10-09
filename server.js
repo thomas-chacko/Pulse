@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import { connectDB, closeDB, isConnected, getDB } from './config/database.js';
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import * as TodoModel from './tools/todo/todoModel.js';
 
@@ -23,24 +23,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Debug logger to intercept Claude's requests
-const debugLogs = [];
-app.use((req, res, next) => {
-  debugLogs.push({
-    time: new Date().toISOString(),
-    method: req.method,
-    url: req.url
-  });
-  if (debugLogs.length > 50) debugLogs.shift();
-  next();
-});
 
-app.get('/debug-logs', (req, res) => {
-  res.json(debugLogs);
-});
-
-// Set up MCP Server instances for each connection
-const transports = new Map();
 
 function createMcpServer() {
   const mcpServer = new Server({
@@ -103,41 +86,22 @@ function createMcpServer() {
   return mcpServer;
 }
 
-// SSE Endpoint for MCP connectors
-app.get('/mcp', async (req, res) => {
-  console.log('Received MCP connection request');
-  
+// Streamable HTTP Endpoint for MCP connectors
+app.post('/mcp', async (req, res) => {
   const mcpServer = createMcpServer();
-  const transport = new SSEServerTransport("/message", res);
-  
-  await mcpServer.connect(transport);
-  
-  // Store the transport so we can route messages to it
-  transports.set(transport.sessionId, transport);
-  
-  // Clean up when connection closes
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   res.on('close', () => {
-    console.log(`Connection closed for session: ${transport.sessionId}`);
-    transports.delete(transport.sessionId);
+    transport.close();
+    mcpServer.close();
   });
+  await mcpServer.connect(transport);
+  await transport.handleRequest(req, res, req.body);
 });
 
-// Message Endpoint for MCP connectors
-app.post('/message', async (req, res) => {
-  const sessionId = req.query.sessionId;
-  
-  if (!sessionId) {
-    return res.status(400).send("Session ID required");
-  }
-  
-  const transport = transports.get(sessionId);
-  
-  if (transport) {
-    await transport.handlePostMessage(req, res);
-  } else {
-    res.status(404).send("Session not found");
-  }
-});
+// Stateless server HTTP GET fallback
+app.get('/mcp', (req, res) => res.status(405).json({
+  jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed.' }, id: null
+}));
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
