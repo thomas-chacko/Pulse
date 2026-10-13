@@ -20,7 +20,7 @@ Build a **Personal Model Context Protocol (MCP) Server** that allows AI assistan
 - Due date support
 - Statistics (pending, completed)
 
-#### 2. Finance Tool 🔜
+#### 2. Finance Tool ✅
 - Track income and expenses
 - Categorize transactions
 - Monthly/yearly summaries
@@ -108,17 +108,25 @@ pulse/
 │       └── ci.yml              # CI/CD pipeline
 ├── config/
 │   └── database.js             # MongoDB connection
+├── mcp/                        # ✅ MCP Protocol Layer
+│   ├── mcpServer.js            # Server initialization
+│   ├── mcpTools.js             # Tool schemas (15 tools)
+│   ├── mcpHandlers.js          # Tool implementations
+│   └── README.md               # MCP documentation
 ├── tools/
 │   ├── todo/                   # ✅ Todo Tool
 │   │   ├── todoController.js   # Business logic
 │   │   ├── todoModel.js        # Database operations
 │   │   └── todoRoutes.js       # API endpoints
-│   ├── finance/                # 🔜 Finance Tool
+│   ├── finance/                # ✅ Finance Tool
+│   │   ├── financeController.js
+│   │   ├── financeModel.js
+│   │   └── financeRoutes.js
 │   ├── calendar/               # 🔜 Calendar Tool
 │   └── github/                 # 🔜 GitHub Tool
 ├── .env                        # Environment variables (secret)
 ├── .env.example                # Environment template
-├── server.js                   # Application entry point
+├── server.js                   # Express server (144 lines)
 ├── package.json                # Dependencies
 ├── Dockerfile                  # Docker image config
 ├── docker-compose.yml          # Docker orchestration
@@ -165,17 +173,22 @@ pulse/
 }
 ```
 
-### **Transactions Collection** (Future)
+### **Transactions Collection** ✅
 ```javascript
 {
   _id: ObjectId,
-  amount: Number,
+  amount: Number,             // Required, positive number
   type: String,               // "income" | "expense"
-  category: String,
-  description: String,
-  date: Date,
-  createdAt: Date
+  category: String,           // Required (validated)
+  description: String,        // Optional
+  date: Date,                 // Transaction date
+  createdAt: Date,            // Auto
+  updatedAt: Date             // Auto
 }
+
+// Income categories: salary, freelance, investment, gift, refund, other
+// Expense categories: food, transport, utilities, entertainment, shopping,
+//                     health, education, bills, rent, insurance, other
 ```
 
 ---
@@ -199,9 +212,20 @@ PATCH  /api/tools/todo/:id/complete    # Mark complete
 PATCH  /api/tools/todo/:id/uncomplete  # Mark pending
 ```
 
+### **Finance Tool Endpoints** ✅
+```
+POST   /api/tools/finance                # Create transaction
+GET    /api/tools/finance                # List transactions (with filters)
+GET    /api/tools/finance/categories     # Get available categories
+GET    /api/tools/finance/summary        # Get financial summary
+GET    /api/tools/finance/spending       # Get spending by category
+GET    /api/tools/finance/:id            # Get single transaction
+PUT    /api/tools/finance/:id            # Update transaction
+DELETE /api/tools/finance/:id            # Delete transaction
+```
+
 ### **Future Endpoints**
 ```
-/api/tools/finance/*
 /api/tools/calendar/*
 /api/tools/github/*
 ```
@@ -262,18 +286,18 @@ Render Web Service
 - [x] MongoDB connection (local + cloud)
 - [x] Docker setup (development + production)
 - [x] CI/CD pipeline (GitHub Actions → Render)
-- [x] Todo Tool (full CRUD + search)
+- [x] Todo Tool (full CRUD + search + 8 MCP tools)
+- [x] Finance Tool (full CRUD + analytics + 7 MCP tools)
+- [x] MCP server architecture (clean separation)
 - [x] Health check endpoint
 - [x] Feature-based architecture
 - [x] Production deployment
 
 ### **In Progress 🔄**
-- [ ] MCP manifest file
 - [ ] API documentation
 - [ ] Error logging
 
 ### **Planned 🔜**
-- [ ] Finance Tool
 - [ ] Calendar Tool (Google Calendar integration)
 - [ ] GitHub Tool (GitHub API integration)
 - [ ] API authentication
@@ -292,8 +316,11 @@ Render Web Service
 - [x] Deployed to production
 - [x] Accessible via REST API
 
-### **Phase 2: Complete Tools**
-- [ ] All 4 tools implemented
+### **Phase 2: Complete Tools** 🔄
+- [x] Todo Tool implemented
+- [x] Finance Tool implemented
+- [ ] Calendar Tool (Google Calendar integration)
+- [ ] GitHub Tool (GitHub API integration)
 - [ ] MCP manifest created
 - [ ] Tested with Claude Desktop
 - [ ] Documentation complete
@@ -378,15 +405,18 @@ npm test
 ### **Best Practices Followed**
 - ✅ Feature-based structure (modular)
 - ✅ Separation of concerns (MVC pattern)
+- ✅ Clean architecture (MCP layer isolated)
+- ✅ Single Responsibility Principle
 - ✅ Environment variables for config
 - ✅ Error handling everywhere
 - ✅ Consistent API response format
 - ✅ RESTful endpoint design
 - ✅ Meaningful variable names
+- ✅ Small, readable files (<210 lines)
 - ✅ Comments where needed
 
 ---
 
-**Last Updated:** October 3, 2026  
-**Version:** 1.0.0  
-**Status:** Phase 1 Complete ✅
+**Last Updated:** October 13, 2026  
+**Version:** 1.1.0  
+**Status:** Phase 1 & 2 (50%) Complete ✅

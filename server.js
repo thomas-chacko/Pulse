@@ -1,17 +1,16 @@
-// Personal MCP Server
-// Modern, scalable architecture with feature-based structure
+// Personal MCP Server - Clean, scalable architecture
+// Server setup and Express configuration
 
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { connectDB, closeDB, isConnected, getDB } from './config/database.js';
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import * as TodoModel from './tools/todo/todoModel.js';
+import { createMcpServer } from './mcp/mcpServer.js';
 
 // Tool routes
 import todoRoutes from './tools/todo/todoRoutes.js';
+import financeRoutes from './tools/finance/financeRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -22,69 +21,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-
-
-function createMcpServer() {
-  const mcpServer = new Server({
-    name: "personal-mcp-server",
-    version: "1.0.0"
-  }, {
-    capabilities: { tools: {} }
-  });
-
-  // Configure MCP Tools
-  mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        {
-          name: "get_todos",
-          description: "Get a list of todos with optional filters",
-          inputSchema: {
-            type: "object",
-            properties: {
-              status: { type: "string", description: "Filter by status (pending, completed)" },
-              priority: { type: "string", description: "Filter by priority (low, medium, high)" },
-              limit: { type: "number", description: "Maximum number of todos to return" }
-            }
-          }
-        },
-        {
-          name: "create_todo",
-          description: "Create a new todo item",
-          inputSchema: {
-            type: "object",
-            properties: {
-              title: { type: "string", description: "Title of the todo" },
-              description: { type: "string", description: "Description of the todo" },
-              priority: { type: "string", description: "Priority (low, medium, high)" }
-            },
-            required: ["title"]
-          }
-        }
-      ]
-    };
-  });
-
-  mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "get_todos") {
-      const filters = request.params.arguments || {};
-      const todos = await TodoModel.getTodos(filters);
-      return {
-        content: [{ type: "text", text: JSON.stringify(todos, null, 2) }]
-      };
-    } else if (request.params.name === "create_todo") {
-      const newTodo = await TodoModel.createTodo(request.params.arguments);
-      return {
-        content: [{ type: "text", text: JSON.stringify(newTodo, null, 2) }]
-      };
-    }
-    
-    throw new Error(`Tool not found: ${request.params.name}`);
-  });
-
-  return mcpServer;
-}
 
 // Streamable HTTP Endpoint for MCP connectors
 app.post('/mcp', async (req, res) => {
@@ -136,7 +72,7 @@ app.get('/health', async (req, res) => {
         endpoint: '/api/tools/todo'
       },
       finance: {
-        status: 'coming soon',
+        status: 'active',
         endpoint: '/api/tools/finance'
       },
       calendar: {
@@ -167,7 +103,7 @@ app.get('/health', async (req, res) => {
 
 // Mount tool routes
 app.use('/api/tools/todo', todoRoutes);
-// app.use('/api/tools/finance', financeRoutes);
+app.use('/api/tools/finance', financeRoutes);
 // app.use('/api/tools/calendar', calendarRoutes);
 // app.use('/api/tools/github', githubRoutes);
 
