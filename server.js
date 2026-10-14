@@ -11,6 +11,7 @@ import { createMcpServer } from './mcp/mcpServer.js';
 // Tool routes
 import todoRoutes from './tools/todo/todoRoutes.js';
 import financeRoutes from './tools/finance/financeRoutes.js';
+import githubRoutes from './tools/github/githubRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -80,7 +81,7 @@ app.get('/health', async (req, res) => {
         endpoint: '/api/tools/calendar'
       },
       github: {
-        status: 'coming soon',
+        status: 'active',
         endpoint: '/api/tools/github'
       }
     }
@@ -104,8 +105,8 @@ app.get('/health', async (req, res) => {
 // Mount tool routes
 app.use('/api/tools/todo', todoRoutes);
 app.use('/api/tools/finance', financeRoutes);
+app.use('/api/tools/github', githubRoutes);
 // app.use('/api/tools/calendar', calendarRoutes);
-// app.use('/api/tools/github', githubRoutes);
 
 // 404 handler
 app.use((req, res) => {

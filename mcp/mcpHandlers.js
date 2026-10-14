@@ -2,6 +2,7 @@
 
 import * as TodoModel from '../tools/todo/todoModel.js';
 import * as FinanceModel from '../tools/finance/financeModel.js';
+import * as GitHubModel from '../tools/github/githubModel.js';
 
 /**
  * Handle all MCP tool calls
@@ -155,6 +156,94 @@ export async function handleToolCall(name, args) {
         };
       }
       
+      // ==================== GITHUB HANDLERS ====================
+      case "github_get_profile": {
+        const account = args?.account || 'personal';
+        const profile = await GitHubModel.getUserProfile(account);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, profile }, null, 2) }]
+        };
+      }
+
+      case "github_get_summary": {
+        const account = args?.account || 'personal';
+        const summary = await GitHubModel.getAccountSummary(account);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, summary }, null, 2) }]
+        };
+      }
+
+      case "github_get_repos": {
+        const account = args?.account || 'personal';
+        const repos = await GitHubModel.getRepos(account, {
+          type: args?.type,
+          sort: args?.sort,
+          limit: args?.limit,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, repos, count: repos.length }, null, 2) }]
+        };
+      }
+
+      case "github_search_repos": {
+        const account = args?.account || 'personal';
+        const repos = await GitHubModel.searchRepos(account, args.query, args?.limit);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, repos, count: repos.length, query: args.query }, null, 2) }]
+        };
+      }
+
+      case "github_get_repo": {
+        const account = args?.account || 'personal';
+        const repo = await GitHubModel.getRepo(account, args.owner, args.repo);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, repo }, null, 2) }]
+        };
+      }
+
+      case "github_get_issues": {
+        const account = args?.account || 'personal';
+        const issues = await GitHubModel.getIssues(account, args.owner, args.repo, {
+          state: args?.state,
+          limit: args?.limit,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, issues, count: issues.length }, null, 2) }]
+        };
+      }
+
+      case "github_create_issue": {
+        const account = args?.account || 'personal';
+        const issue = await GitHubModel.createIssue(account, args.owner, args.repo, {
+          title: args.title,
+          body: args?.body,
+          labels: args?.labels,
+          assignees: args?.assignees,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, issue }, null, 2) }]
+        };
+      }
+
+      case "github_get_pull_requests": {
+        const account = args?.account || 'personal';
+        const pullRequests = await GitHubModel.getPullRequests(account, args.owner, args.repo, {
+          state: args?.state,
+          limit: args?.limit,
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, pullRequests, count: pullRequests.length }, null, 2) }]
+        };
+      }
+
+      case "github_get_commits": {
+        const account = args?.account || 'personal';
+        const commits = await GitHubModel.getCommits(account, args.owner, args.repo, args?.limit);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ account, commits, count: commits.length }, null, 2) }]
+        };
+      }
+
       default:
         throw new Error(`Tool not found: ${name}`);
     }

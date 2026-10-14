@@ -197,6 +197,128 @@ export function getToolDefinitions() {
             endDate: { type: "string", description: "End date (YYYY-MM-DD)" }
           }
         }
+      },
+
+      // ==================== GITHUB TOOLS ====================
+      {
+        name: "github_get_profile",
+        description: "Get GitHub profile info for personal or company account",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account to use: 'personal' or 'company' (default: personal)" }
+          }
+        }
+      },
+      {
+        name: "github_get_summary",
+        description: "Get a full summary of a GitHub account: profile, repo stats, top languages, recent repos",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account to use: 'personal' or 'company' (default: personal)" }
+          }
+        }
+      },
+      {
+        name: "github_get_repos",
+        description: "List repositories for personal or company GitHub account",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account: 'personal' or 'company' (default: personal)" },
+            type: { type: "string", description: "Filter: all, owner, member (default: all)" },
+            sort: { type: "string", description: "Sort by: updated, created, pushed, full_name (default: updated)" },
+            limit: { type: "number", description: "Max repos to return (default: 20)" }
+          }
+        }
+      },
+      {
+        name: "github_search_repos",
+        description: "Search repositories by keyword within a GitHub account",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account: 'personal' or 'company' (default: personal)" },
+            query: { type: "string", description: "Search keyword" },
+            limit: { type: "number", description: "Max results (default: 10)" }
+          },
+          required: ["query"]
+        }
+      },
+      {
+        name: "github_get_repo",
+        description: "Get detailed info about a specific repository",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account: 'personal' or 'company' (default: personal)" },
+            owner: { type: "string", description: "Repository owner (username or org)" },
+            repo: { type: "string", description: "Repository name" }
+          },
+          required: ["owner", "repo"]
+        }
+      },
+      {
+        name: "github_get_issues",
+        description: "List issues for a GitHub repository",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account: 'personal' or 'company' (default: personal)" },
+            owner: { type: "string", description: "Repository owner" },
+            repo: { type: "string", description: "Repository name" },
+            state: { type: "string", description: "Filter by state: open, closed, all (default: open)" },
+            limit: { type: "number", description: "Max issues to return (default: 20)" }
+          },
+          required: ["owner", "repo"]
+        }
+      },
+      {
+        name: "github_create_issue",
+        description: "Create a new issue in a GitHub repository",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account: 'personal' or 'company' (default: personal)" },
+            owner: { type: "string", description: "Repository owner" },
+            repo: { type: "string", description: "Repository name" },
+            title: { type: "string", description: "Issue title" },
+            body: { type: "string", description: "Issue description" },
+            labels: { type: "array", items: { type: "string" }, description: "Labels to apply" },
+            assignees: { type: "array", items: { type: "string" }, description: "Usernames to assign" }
+          },
+          required: ["owner", "repo", "title"]
+        }
+      },
+      {
+        name: "github_get_pull_requests",
+        description: "List pull requests for a GitHub repository",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account: 'personal' or 'company' (default: personal)" },
+            owner: { type: "string", description: "Repository owner" },
+            repo: { type: "string", description: "Repository name" },
+            state: { type: "string", description: "Filter: open, closed, all (default: open)" },
+            limit: { type: "number", description: "Max PRs to return (default: 20)" }
+          },
+          required: ["owner", "repo"]
+        }
+      },
+      {
+        name: "github_get_commits",
+        description: "List recent commits for a GitHub repository",
+        inputSchema: {
+          type: "object",
+          properties: {
+            account: { type: "string", description: "Which account: 'personal' or 'company' (default: personal)" },
+            owner: { type: "string", description: "Repository owner" },
+            repo: { type: "string", description: "Repository name" },
+            limit: { type: "number", description: "Max commits to return (default: 15)" }
+          },
+          required: ["owner", "repo"]
+        }
       }
     ]
   };
