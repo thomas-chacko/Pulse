@@ -4,9 +4,14 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import helmet from 'helmet';
 import { connectDB, closeDB, isConnected, getDB } from './config/database.js';
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer } from './mcp/mcpServer.js';
+
+// Middleware
+import { authenticate } from './middleware/auth.js';
+import { generalLimiter, strictLimiter } from './middleware/rateLimiter.js';
 
 // Tool routes
 import todoRoutes from './tools/todo/todoRoutes.js';
@@ -19,26 +24,51 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// ── Security Middleware ─────────────────────────────────────
+
+// Security headers (XSS, clickjacking, MIME sniffing protection, etc.)
+app.use(helmet());
+
+// CORS configuration
+const corsOptions = (() => {
+  const env = process.env.NODE_ENV || 'development';
+
+  // In development: allow all origins
+  if (env === 'development') {
+    return {};
+  }
+
+  // In production: restrict to allowed origins
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+    : null;
+
+  // If ALLOWED_ORIGINS is not set, allow all (backwards compatible)
+  if (!allowedOrigins) {
+    return {};
+  }
+
+  return {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, server-to-server, MCP clients)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  };
+})();
+
+app.use(cors(corsOptions));
+
+// Body parser
 app.use(express.json());
 
-// Streamable HTTP Endpoint for MCP connectors
-app.post('/mcp', async (req, res) => {
-  const mcpServer = createMcpServer();
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  res.on('close', () => {
-    transport.close();
-    mcpServer.close();
-  });
-  await mcpServer.connect(transport);
-  await transport.handleRequest(req, res, req.body);
-});
+// Rate limiting (applies to all routes)
+app.use(generalLimiter);
 
-// Stateless server HTTP GET fallback
-app.get('/mcp', (req, res) => res.status(405).json({
-  jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed.' }, id: null
-}));
+// ── Public Routes (no auth required) ────────────────────────
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -84,6 +114,13 @@ app.get('/health', async (req, res) => {
         status: 'active',
         endpoint: '/api/tools/github'
       }
+    },
+
+    // Security info
+    security: {
+      authentication: process.env.API_KEY ? 'enabled' : 'disabled',
+      rateLimiting: 'enabled',
+      helmet: 'enabled'
     }
   };
   
@@ -101,6 +138,33 @@ app.get('/health', async (req, res) => {
   
   res.status(200).json(healthData);
 });
+
+// ── Authentication (all routes below require API key) ───────
+
+app.use(authenticate);
+
+// ── Strict rate limiter for write operations ────────────────
+
+app.use(strictLimiter);
+
+// ── Protected Routes ────────────────────────────────────────
+
+// Streamable HTTP Endpoint for MCP connectors
+app.post('/mcp', async (req, res) => {
+  const mcpServer = createMcpServer();
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  res.on('close', () => {
+    transport.close();
+    mcpServer.close();
+  });
+  await mcpServer.connect(transport);
+  await transport.handleRequest(req, res, req.body);
+});
+
+// Stateless server HTTP GET fallback
+app.get('/mcp', (req, res) => res.status(405).json({
+  jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed.' }, id: null
+}));
 
 // Mount tool routes
 app.use('/api/tools/todo', todoRoutes);
@@ -124,6 +188,7 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`🏥 Health: http://localhost:${PORT}/health`);
+      console.log(`🔐 Auth: ${process.env.API_KEY ? 'ENABLED' : 'DISABLED (set API_KEY in .env)'}`);
     });
   } catch (error) {
     console.error('❌ Failed to start:', error.message);

@@ -24,9 +24,12 @@ This file provides Claude with the full context needed to work effectively in th
 
 ```
 Pulse/
-├── server.js                   # Express entry point, MCP endpoint, health check (146 lines)
+├── server.js                   # Express entry point, MCP endpoint, health check
 ├── config/
 │   └── database.js             # MongoDB connection (singleton pattern, connection pooling)
+├── middleware/
+│   ├── auth.js                 # API key authentication (Bearer token + query param)
+│   └── rateLimiter.js          # Rate limiting (general + strict for write ops)
 ├── mcp/
 │   ├── mcpServer.js            # MCP server factory (creates new Server per request)
 │   ├── mcpTools.js             # Tool schemas/definitions (24 tools, JSON Schema format)
@@ -123,6 +126,8 @@ import { getDB } from '../../config/database.js';
 | `MONGODB_URI` | ✅ Yes | — | MongoDB connection string |
 | `PORT` | No | `3000` | Server port |
 | `NODE_ENV` | No | `development` | Environment |
+| `API_KEY` | Recommended | — | API key for authentication (leave empty to disable) |
+| `ALLOWED_ORIGINS` | No | Allow all | Comma-separated CORS origins (production only) |
 | `GITHUB_PERSONAL_TOKEN` | For GitHub tool | — | Personal GitHub PAT |
 | `GITHUB_PERSONAL_USERNAME` | For GitHub tool | — | Personal GitHub username |
 | `GITHUB_COMPANY_TOKEN` | For GitHub tool | — | Company GitHub PAT |
@@ -297,11 +302,53 @@ No test suite exists yet. When adding tests:
 
 ---
 
+## Security
+
+### Authentication (API Key)
+
+- Implemented via `middleware/auth.js`
+- Reads `API_KEY` from `.env`
+- Checks `Authorization: Bearer <key>` header or `?api_key=<key>` query parameter
+- If `API_KEY` is not set in `.env`, **all requests are blocked with `503`** (secure by default)
+- **`GET /health` is the only unauthenticated endpoint** — it's registered BEFORE the auth middleware
+
+### Rate Limiting
+
+- Implemented via `middleware/rateLimiter.js` using `express-rate-limit`
+- **General limiter:** 100 requests per 15 minutes per IP (all routes)
+- **Strict limiter:** 20 requests per 15 minutes per IP (POST, PUT, DELETE, PATCH only)
+- Returns `429` with `{ success: false, error: "Too many requests..." }`
+
+### Security Headers
+
+- `helmet` middleware adds standard security headers:
+  - XSS protection, clickjacking prevention, MIME sniffing, etc.
+
+### CORS
+
+- **Development:** All origins allowed
+- **Production:** Reads `ALLOWED_ORIGINS` from `.env` (comma-separated). If not set, allows all origins.
+- Requests with no `Origin` header (curl, server-to-server, MCP clients) are always allowed.
+
+### Middleware Order in server.js
+
+```
+helmet → cors → json parser → general rate limiter → GET /health (public) → authenticate → strict rate limiter → all protected routes
+```
+
+This order ensures:
+1. Security headers are always applied
+2. Health check is always accessible
+3. Auth is checked before any data endpoint
+4. Write operations have stricter rate limits
+
+---
+
 ## Things to Watch Out For
 
 1. **MCP handlers bypass Controllers** — If you add validation in a Controller, the same validation must be duplicated in `mcpHandlers.js` or extracted into a shared validation utility.
-2. **No authentication** — The server is currently open. Plan to add API key / token auth.
-3. **No rate limiting** — Planned but not implemented.
-4. **GitHub tool needs tokens** — Will throw if `GITHUB_PERSONAL_TOKEN` is not set in `.env`.
-5. **`findOneAndUpdate` return value** — MongoDB native driver returns the document directly (not `{ value: doc }`). This is already handled correctly in the models.
-6. **Calendar tool** — Placeholder in TASK only. No code exists yet. The route is commented out in `server.js`.
+2. **API_KEY required** — If `API_KEY` is not set in `.env`, all requests (except `/health`) are blocked with `503 Service Unavailable`. Always set it.
+3. **GitHub tool needs tokens** — Will throw if `GITHUB_PERSONAL_TOKEN` is not set in `.env`.
+4. **`findOneAndUpdate` return value** — MongoDB native driver returns the document directly (not `{ value: doc }`). This is already handled correctly in the models.
+5. **Calendar tool** — No code exists yet. The route is commented out in `server.js`.
+6. **New routes must go AFTER `app.use(authenticate)`** — Any route mounted before the auth middleware will be publicly accessible.
