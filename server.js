@@ -180,6 +180,20 @@ app.use((req, res) => {
   });
 });
 
+// Global error handler (must be last)
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  
+  // Don't expose error details in production
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  res.status(err.status || 500).json({
+    success: false,
+    error: isDev ? err.message : 'Internal server error',
+    ...(isDev && { stack: err.stack })
+  });
+});
+
 // Start server
 async function startServer() {
   try {

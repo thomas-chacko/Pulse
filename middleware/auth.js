@@ -1,6 +1,8 @@
 // API Key Authentication Middleware
 // Protects all routes except /health with a Bearer token
 
+import crypto from 'crypto';
+
 /**
  * Extract API key from request
  * Supports: Authorization header (Bearer token) and query parameter fallback
@@ -48,11 +50,24 @@ export function authenticate(req, res, next) {
   if (!providedKey) {
     return res.status(401).json({
       success: false,
-      error: 'Unauthorized — missing API key. Use Authorization: Bearer <key> header or ?api_key=<key> query parameter.'
+      error: 'Authentication required - Include your API key in the Authorization header'
     });
   }
 
-  if (providedKey !== serverApiKey) {
+  // Use constant-time comparison to prevent timing attacks
+  const providedKeyBuffer = Buffer.from(providedKey);
+  const serverKeyBuffer = Buffer.from(serverApiKey);
+
+  // Compare lengths first (also in constant time)
+  if (providedKeyBuffer.length !== serverKeyBuffer.length) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized — invalid API key.'
+    });
+  }
+
+  // Constant-time comparison
+  if (!crypto.timingSafeEqual(providedKeyBuffer, serverKeyBuffer)) {
     return res.status(401).json({
       success: false,
       error: 'Unauthorized — invalid API key.'
