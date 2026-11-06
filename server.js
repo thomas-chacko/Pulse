@@ -17,6 +17,7 @@ import { generalLimiter, strictLimiter } from './middleware/rateLimiter.js';
 import todoRoutes from './tools/todo/todoRoutes.js';
 import financeRoutes from './tools/finance/financeRoutes.js';
 import githubRoutes from './tools/github/githubRoutes.js';
+import calendarRoutes from './tools/calendar/calendarRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -106,13 +107,13 @@ app.get('/health', async (req, res) => {
         status: 'active',
         endpoint: '/api/tools/finance'
       },
-      calendar: {
-        status: 'coming soon',
-        endpoint: '/api/tools/calendar'
-      },
       github: {
         status: 'active',
         endpoint: '/api/tools/github'
+      },
+      calendar: {
+        status: 'active',
+        endpoint: '/api/tools/calendar'
       }
     },
 
@@ -170,6 +171,7 @@ app.get('/mcp', (req, res) => res.status(405).json({
 app.use('/api/tools/todo', todoRoutes);
 app.use('/api/tools/finance', financeRoutes);
 app.use('/api/tools/github', githubRoutes);
+app.use('/api/tools/calendar', calendarRoutes);
 // app.use('/api/tools/calendar', calendarRoutes);
 
 // 404 handler
