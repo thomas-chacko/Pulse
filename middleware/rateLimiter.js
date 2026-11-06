@@ -28,7 +28,7 @@ export const strictLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   // Only count write methods
-  skipIf: (req) => !['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method),
+  skip: (req) => !['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method),
   message: {
     success: false,
     error: 'Too many write requests, please try again later.'
