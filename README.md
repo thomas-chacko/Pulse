@@ -200,9 +200,3 @@ GITHUB_COMPANY_USERNAME=your_company_username
 
 - **URL:** https://pulse-1tdk.onrender.com
 - **Health:** https://pulse-1tdk.onrender.com/health
-
----
-
-## 📄 License
-
-Private project.
